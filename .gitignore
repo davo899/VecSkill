@@ -5,3 +5,5 @@
 dataCollector.py
 run.sh
 stop.sh
+
+__pycache__

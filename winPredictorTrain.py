@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.nn.functional import relu, tanh, sigmoid
+from winPredictorModel import winPredictor
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data import DataLoader, Dataset
 from sklearn.preprocessing import StandardScaler
@@ -63,7 +63,7 @@ class LeagueDataset(Dataset):
     def __init__(self, device, queues, gamemodes, gameTypes):
         with open("dbkey.txt", "r") as file:
             conn_string = file.readline()
-            
+
         conn = psycopg2.connect(conn_string)
         cursor = conn.cursor()
         self.x = torch.empty(0)
@@ -120,25 +120,6 @@ y_train = y_train.view(y_train.shape[0], 1).to(device)
 y_val = y_val.view(y_val.shape[0], 1).to(device)
 y_test = y_test.view(y_test.shape[0], 1).to(device)
 
-
-class WinPredictor(nn.Module):
-
-    def __init__(self, device, input_features, hl_nodes, act_func_1, act_func_2):
-        super(WinPredictor, self).__init__()
-        self.layer1 = nn.Linear(input_features, hl_nodes).to(device)
-        self.layer2 = nn.Linear(hl_nodes, hl_nodes).to(device)
-        self.act_func_1 = act_func_1
-        self.act_func_2 = act_func_2
-        self.outputLayer = nn.Linear(hl_nodes, 1).to(device)
-
-    def forward(self, x):
-        l1 = self.layer1(x)
-        l2 = self.layer2(self.act_func_1(l1))
-        l3 = self.outputLayer(self.act_func_2(l2))
-        y_predicted = torch.sigmoid(l3)
-        return y_predicted
-
-
 lr = 0.1
 num_epochs = 3000
 criterion = nn.BCELoss()
@@ -146,7 +127,7 @@ criterion = nn.BCELoss()
 max_acc = -1
 max_acc_model = None
 
-model = WinPredictor(device, n_features, 200, tanh, tanh)
+model = winPredictor(n_features)
 optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=3e-4, total_iters=num_epochs)
 
