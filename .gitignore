@@ -1,0 +1,7 @@
+*.log
+*.pth
+*.txt
+
+dataCollector.py
+run.sh
+stop.sh
