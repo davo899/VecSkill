@@ -6,6 +6,8 @@ def winPredictor(input_features):
         nn.Tanh(),
         nn.Linear(200, 200),
         nn.Tanh(),
-        nn.Linear(200, 1),
+        nn.Linear(200, 50),
+        nn.Tanh(),
+        nn.Linear(50, 1),
         nn.Sigmoid()
     )

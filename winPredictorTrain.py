@@ -121,13 +121,13 @@ y_val = y_val.view(y_val.shape[0], 1).to(device)
 y_test = y_test.view(y_test.shape[0], 1).to(device)
 
 lr = 0.1
-num_epochs = 3000
+num_epochs = 10000
 criterion = nn.BCELoss()
 
 max_acc = -1
 max_acc_model = None
 
-model = winPredictor(n_features)
+model = winPredictor(n_features).to(device)
 optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=3e-4, total_iters=num_epochs)
 
