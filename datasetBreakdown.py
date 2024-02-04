@@ -32,9 +32,11 @@ with open("dbkey.txt", "r") as file:
     gameCount = 0
     while minId:
         cursor.execute(f"SELECT \"MatchJson\" FROM league.\"Match\" WHERE \"ID\" >= {minId} AND \"ID\" < {minId + 10000};")
-        gameInfo = [game[0]["info"] for game in cursor.fetchall()]
-        gameCount += len(gameInfo)
-        for game in gameInfo:
+        games = [game[0]["info"] for game in cursor.fetchall()]
+        games = [game for game in games if game["gameType"] == "MATCHED_GAME"] # Matched game type filter
+        
+        gameCount += len(games)
+        for game in games:
             for categoriser in categorisers.values():
                 categoriser.add(game)
 
@@ -42,4 +44,4 @@ with open("dbkey.txt", "r") as file:
         minId = cursor.fetchall()[0][0]
         print(f"{gameCount} samples loaded")
 
-print(categorisers["gameType"].dict)
+print(categorisers["gameMode"].dict)
