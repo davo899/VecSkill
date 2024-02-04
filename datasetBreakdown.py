@@ -40,8 +40,8 @@ with open("dbkey.txt", "r") as file:
         
         gameCount += len(games)
         for game in games:
-            for participant in game["participants"]:
-                categorisers["champion"].add(participant)
+            for categoriser in categorisers.values():
+                categoriser.add(game)
 
         cursor.execute(f"SELECT MIN(\"ID\") FROM league.\"Match\" WHERE \"ID\" >= {minId + 10000};")
         minId = cursor.fetchall()[0][0]
