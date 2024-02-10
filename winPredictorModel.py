@@ -1,13 +1,13 @@
 from torch import nn
+from constants import CHAMPION_IDS
 
-def winPredictor(input_features):
-    return nn.Sequential(
-        nn.Linear(input_features, 200),
-        nn.Tanh(),
-        nn.Linear(200, 200),
-        nn.Tanh(),
-        nn.Linear(200, 50),
-        nn.Tanh(),
-        nn.Linear(50, 1),
-        nn.Sigmoid()
-    )
+MODEL = nn.Sequential(
+    nn.Linear(2 * len(CHAMPION_IDS), 200),
+    nn.Tanh(),
+    nn.Linear(200, 200),
+    nn.Tanh(),
+    nn.Linear(200, 50),
+    nn.Tanh(),
+    nn.Linear(50, 1),
+    nn.Sigmoid()
+)
