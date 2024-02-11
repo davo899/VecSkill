@@ -1,8 +1,10 @@
 from torch import nn
 from constants import CHAMPION_IDS
 
+INPUT_FEATURES = 10 * len(CHAMPION_IDS)
+
 MODEL = nn.Sequential(
-    nn.Linear(2 * len(CHAMPION_IDS), 200),
+    nn.Linear(INPUT_FEATURES, 200),
     nn.Tanh(),
     nn.Linear(200, 200),
     nn.Tanh(),

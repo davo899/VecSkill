@@ -1,6 +1,6 @@
 *.log
-*.pth
 *.txt
+**.pth
 
 dataCollector.py
 run.sh

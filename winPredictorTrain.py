@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from winPredictorModel import MODEL
+from winPredictorModel import MODEL, INPUT_FEATURES
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
@@ -9,7 +9,7 @@ import socket
 import numpy as np
 import copy
 from constants import BLUE_TEAM, CHAMPION_IDS
-from datasetServer import PORT, END_MESSAGE
+from datasetServer import PORT, NEXT_MESSAGE, END_MESSAGE
 from dto import MatchDTO
 
 
@@ -35,16 +35,19 @@ def get_match_result_tensor(matchDTO):
 class LeagueDataset(Dataset):
 
     def __init__(self, device):
-        self.x = torch.empty(0)
-        self.y = torch.empty(0)
+        self.x = torch.empty((0, INPUT_FEATURES))
+        self.y = torch.empty((0, 1))
         
+        matchTensors = []
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             s.connect(("localhost", PORT))
-            while (data := s.recv()) != END_MESSAGE:
-                matchDTO = MatchDTO.from_bytes(data)
-                self.x = torch.cat((self.x, get_match_tensor(matchDTO)))
-                self.y = torch.cat((self.y, get_match_result_tensor(matchDTO)))
+            s.send(NEXT_MESSAGE)
+            while (data := s.recv(1024)) != END_MESSAGE:
+                matchDTO = MatchDTO().from_bytes(iter(data))
+                s.send(NEXT_MESSAGE)
+                self.x = torch.cat((self.x, get_match_tensor(matchDTO).expand((1, -1))))
+                self.y = torch.cat((self.y, get_match_result_tensor(matchDTO).expand((1, -1))))
 
         self.length = len(self.x)
 
@@ -114,4 +117,4 @@ with torch.no_grad():
     acc = y_predicted_classes.eq(y_test).sum() / float(y_test.shape[0])
     print(f'accuracy = {acc:.4f}')
     
-    torch.save(max_acc_model.state_dict(), f"model-{int(acc * 100)}.pth")
+    torch.save(max_acc_model.state_dict(), f"models/model-{int(acc * 100)}.pth")
