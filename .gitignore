@@ -1,5 +1,8 @@
 *.log
 *.txt
+*.json
+*.xlsx
+*.docx
 **.pth
 
 dataCollector.py
@@ -7,3 +10,4 @@ run.sh
 stop.sh
 
 __pycache__
+models

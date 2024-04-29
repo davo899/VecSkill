@@ -1,19 +1,21 @@
 import torch
+import ijson
+import os
 from torch import nn
 import torch.optim.lr_scheduler as lr_scheduler
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-import socket
 import numpy as np
 import copy
 import math
-from constants import BLUE_TEAM, CHAMPION_IDS
-from datasetServer import PORT, NEXT_MESSAGE, END_MESSAGE
+from constants import BLUE_TEAM, CHAMPION_IDS, DATASET_FILE, DB_KEY_FILE, DRAFT_PICK, RANKED_SOLO, RANKED_FLEX, MATCH_COUNT_CUTOFF
 from dto import MatchDTO
+from psycopg2 import connect
 
 
-DATASET_SIZE_LIMIT = math.inf
+DATASET_SIZE_LIMIT = 400_000
+MODELS_DIRECTORY = "models"
 
 def get_player_tensor(playerDTO):
     champion_tensor = torch.zeros(len(CHAMPION_IDS))
@@ -32,25 +34,57 @@ def get_match_result_tensor(matchDTO):
 
 class LeagueDataset(Dataset):
 
-    def __init__(self, device):
+    def stream_dataset_file(self):
+        with open(DATASET_FILE, 'rb') as file:
+            for match in ijson.items(file, 'item'):
+                yield match
+
+    def __init__(self, use_file):
         x_tensors = []
         y_tensors = []
         print("Loading dataset")
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            s.connect(("localhost", PORT))
-            s.send(NEXT_MESSAGE)
-            while (data := s.recv(INPUT_FEATURES * 4)) != END_MESSAGE:
-                s.send(NEXT_MESSAGE)
+
+        if use_file:
+            for match in self.stream_dataset_file():
                 if len(x_tensors) >= DATASET_SIZE_LIMIT:
-                    continue
-                matchDTO = MatchDTO().from_bytes(iter(data))
+                    break
+                matchDTO = MatchDTO().from_json(match)
                 x_tensors.append(get_match_tensor(matchDTO))
                 y_tensors.append(get_match_result_tensor(matchDTO))
+        else:
+            with open(DB_KEY_FILE, "r", encoding="utf-8") as file:
+                conn_string = file.readline()
+
+            conn = connect(conn_string)
+            cursor = conn.cursor()
+            cursor.execute("SELECT MIN(\"ID\") FROM league.\"Match\";")
+            minId = cursor.fetchall()[0][0]
+            match_count = 0
+            while minId:
+                cursor.execute(f"SELECT \"MatchJson\" FROM league.\"Match\" WHERE \"ID\" >= {minId} AND \"ID\" < {minId + 10000};")
+                batch = [
+                    match for match in (match[0]["info"] for match in cursor.fetchall())
+                    if match["queueId"] in (DRAFT_PICK, RANKED_SOLO, RANKED_FLEX) and
+                    match["gameMode"] in ("CLASSIC",) and
+                    match["gameType"] in ("MATCHED_GAME",)
+                ]
+                match_count += len(batch)
+                for match in batch:
+                    matchDTO = MatchDTO().from_json(match)
+                    x_tensors.append(get_match_tensor(matchDTO))
+                    y_tensors.append(get_match_result_tensor(matchDTO))
+
+                print(f"{match_count} matches loaded")
+                if match_count >= MATCH_COUNT_CUTOFF:
+                    break
+
+                cursor.execute(f"SELECT MIN(\"ID\") FROM league.\"Match\" WHERE \"ID\" >= {minId + 10000};")
+                minId = cursor.fetchall()[0][0]
 
         self.x = torch.stack(x_tensors)
         self.y = torch.stack(y_tensors)
         self.length = len(self.x)
+        print("Dataset loaded")
 
     def __getitem__(self, index):
         return self.x[index], self.y[index]
@@ -73,17 +107,15 @@ MODEL = nn.Sequential(
 
 def main():
     if torch.cuda.is_available(): 
-        dev = "cuda:0" 
+        dev = "cuda:0"
     else: 
         dev = "cpu"
 
     device = torch.device(dev)
 
-    dataset = LeagueDataset(device)
+    dataset = LeagueDataset(use_file=True)
 
     X, y = dataset.x, dataset.y
-
-    n_samples, n_features = X.shape
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25)
@@ -129,7 +161,7 @@ def main():
             max_acc = acc
             max_acc_model = copy.deepcopy(model)
 
-        if (epoch+1) % 10 == 0:
+        if (epoch + 1) % 10 == 0:
             print(f'epoch: {epoch+1}, loss = {loss.item():.4f}, val_acc: {acc:.4f}')
 
     with torch.no_grad():
@@ -137,8 +169,10 @@ def main():
         y_predicted_classes = y_predicted.round()
         acc = y_predicted_classes.eq(y_test).sum() / float(y_test.shape[0])
         print(f'accuracy = {acc:.4f}')
-        
-        torch.save(max_acc_model.state_dict(), f"models/model-{int(acc * 100)}.pth")
+
+        if not os.path.exists(MODELS_DIRECTORY):
+            os.makedirs(MODELS_DIRECTORY)
+        torch.save(max_acc_model.state_dict(), f"{MODELS_DIRECTORY}/model-{int(acc * 100)}.pth")
 
 if __name__ == "__main__":
     main()

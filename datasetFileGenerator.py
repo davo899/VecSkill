@@ -1,13 +1,10 @@
 import json
 from psycopg2 import connect
-from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX
+from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX, DATASET_FILE, DB_KEY_FILE, MATCH_COUNT_CUTOFF
 
 PORT = 24629
 NEXT_MESSAGE = b"NEXT"
 END_MESSAGE = b"END"
-MATCH_COUNT_CUTOFF = 1
-DB_KEY_FILE = "dbkey.txt"
-DATASET_FILE = "match_dataset.json"
 
 if __name__ == "__main__":
     with open(DB_KEY_FILE, "r", encoding="utf-8") as file:
@@ -25,10 +22,6 @@ if __name__ == "__main__":
         match_count = 0
         first = True
         while minId:
-            if first:
-                first = False
-            else:
-                file.write(",")
 
             cursor.execute(f"SELECT \"MatchJson\" FROM league.\"Match\" WHERE \"ID\" >= {minId} AND \"ID\" < {minId + 10000};")
             batch = [
@@ -39,6 +32,10 @@ if __name__ == "__main__":
             ]
             match_count += len(batch)
             for match in batch:
+                if first:
+                    first = False
+                else:
+                    file.write(", ")
                 file.write(json.dumps(match))
 
             print(f"{match_count} matches written")
