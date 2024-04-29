@@ -11,7 +11,6 @@ MATCH_COUNT_CUTOFF = 1
 
 if __name__ == "__main__":
     matches = []
-    match_count = 0
     with open("dbkey.txt", "r") as file:
         conn_string = file.readline()
 
