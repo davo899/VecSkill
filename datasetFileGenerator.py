@@ -18,8 +18,7 @@ if __name__ == "__main__":
     cursor.execute("SELECT MIN(\"ID\") FROM league.\"Match\";")
     minId = cursor.fetchall()[0][0]
 
-    with open(DATASET
-_FILE, "w", encoding="utf-8") as file:
+    with open(DATASET_FILE, "w", encoding="utf-8") as file:
         print("Generating dataset file")
         file.write("[")
 
