@@ -7,21 +7,20 @@ from sklearn.model_selection import train_test_split
 import socket
 import numpy as np
 import copy
-from constants import BLUE_TEAM, CHAMPION_IDS, INPUT_FEATURES
+import math
+from constants import BLUE_TEAM, CHAMPION_IDS
 from datasetServer import PORT, NEXT_MESSAGE, END_MESSAGE
 from dto import MatchDTO
 
+
+DATASET_SIZE_LIMIT = math.inf
 
 def get_player_tensor(playerDTO):
     champion_tensor = torch.zeros(len(CHAMPION_IDS))
     champion_tensor[playerDTO.champion] = 1
     return torch.cat((
         champion_tensor,
-        torch.Tensor([
-            playerDTO.kills,
-            playerDTO.deaths,
-            playerDTO.assists,
-        ])
+        torch.Tensor(playerDTO.count_features)
     ))
 
 def get_match_tensor(matchDTO):
@@ -34,20 +33,23 @@ def get_match_result_tensor(matchDTO):
 class LeagueDataset(Dataset):
 
     def __init__(self, device):
-        self.x = torch.empty((0, INPUT_FEATURES))
-        self.y = torch.empty((0, 1))
-        
-        matchTensors = []
+        x_tensors = []
+        y_tensors = []
+        print("Loading dataset")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             s.connect(("localhost", PORT))
             s.send(NEXT_MESSAGE)
-            while (data := s.recv(1024)) != END_MESSAGE:
-                matchDTO = MatchDTO().from_bytes(iter(data))
+            while (data := s.recv(INPUT_FEATURES * 4)) != END_MESSAGE:
                 s.send(NEXT_MESSAGE)
-                self.x = torch.cat((self.x, get_match_tensor(matchDTO).expand((1, -1))))
-                self.y = torch.cat((self.y, get_match_result_tensor(matchDTO).expand((1, -1))))
+                if len(x_tensors) >= DATASET_SIZE_LIMIT:
+                    continue
+                matchDTO = MatchDTO().from_bytes(iter(data))
+                x_tensors.append(get_match_tensor(matchDTO))
+                y_tensors.append(get_match_result_tensor(matchDTO))
 
+        self.x = torch.stack(x_tensors)
+        self.y = torch.stack(y_tensors)
         self.length = len(self.x)
 
     def __getitem__(self, index):

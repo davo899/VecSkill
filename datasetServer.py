@@ -2,14 +2,12 @@ import socket
 from psycopg2 import connect
 from dto import MatchDTO
 import math
+from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX
 
 PORT = 24629
 NEXT_MESSAGE = b"NEXT"
 END_MESSAGE = b"END"
-MATCH_COUNT_CUTOFF = 1000
-DRAFT_PICK = 400
-RANKED_SOLO = 420
-RANKED_FLEX = 440
+MATCH_COUNT_CUTOFF = 1
 
 if __name__ == "__main__":
     matches = []
@@ -49,9 +47,9 @@ if __name__ == "__main__":
                 print(f"Opened connection with {address}")
                 try:
                     for match in matches:
-                        if client_socket.recv(1024) == NEXT_MESSAGE:
+                        if client_socket.recv(len(NEXT_MESSAGE)) == NEXT_MESSAGE:
                             client_socket.send(match)
-                    if client_socket.recv(1024) == NEXT_MESSAGE:
+                    if client_socket.recv(len(NEXT_MESSAGE)) == NEXT_MESSAGE:
                         client_socket.send(END_MESSAGE)
                 except ConnectionResetError:
                     print("Connection reset by peer")

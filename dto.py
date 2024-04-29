@@ -6,35 +6,80 @@ class PlayerDTO:
     def __init__(self):
         self.champion = 0
         self.team = 0
-        self.kills = 0
-        self.deaths = 0
-        self.assists = 0
+        self.count_feature_count = 35
+        self.count_features = [0 for _ in range(self.count_feature_count)]
 
     def to_bytes(self):
         bytes_ = bytearray()
 
         bytes_.extend(self.champion.to_bytes(1, "little"))
         bytes_.extend(self.team.to_bytes(1, "little"))
-        bytes_.extend(self.kills.to_bytes(1, "little"))
-        bytes_.extend(self.deaths.to_bytes(1, "little"))
-        bytes_.extend(self.assists.to_bytes(1, "little"))
+        for count_feature in self.count_features:
+            bytes_.extend(count_feature.to_bytes(4, "little"))
 
         return bytes_
 
     def from_bytes(self, bytes_):
-        self.champion = int(next(bytes_))
-        self.team = int(next(bytes_))
-        self.kills = int(next(bytes_))
-        self.deaths = int(next(bytes_))
-        self.assists = int(next(bytes_))
+        self.champion = next(bytes_)
+        self.team = next(bytes_)
+        self.count_features = [
+            int.from_bytes(
+                bytearray([next(bytes_), next(bytes_), next(bytes_), next(bytes_)]),
+                "little"
+            )
+            for _ in range(self.count_feature_count)
+        ]
         return self
 
     def from_json(self, json_):
         self.champion = CHAMPION_IDS.index(json_["championId"])
         self.team = json_["teamId"]
-        self.kills = json_["kills"]
-        self.deaths = json_["deaths"]
-        self.assists = json_["assists"]
+
+        challenges = json_["challenges"]
+        self.count_features = [
+            json_["kills"],
+            json_["deaths"],
+            json_["assists"], # 3
+
+            json_["goldEarned"],
+            json_["champExperience"], # 5
+
+            json_["totalDamageDealtToChampions"],
+            json_["totalTimeCCDealt"], #7
+
+            json_["allInPings"],
+            json_["assistMePings"],
+            json_["baitPings"],
+            json_["basicPings"],
+            json_["commandPings"],
+            json_["dangerPings"],
+            json_["enemyMissingPings"],
+            json_["enemyVisionPings"],
+            json_["getBackPings"],
+            json_["holdPings"],
+            json_["needVisionPings"],
+            json_["onMyWayPings"],
+            json_["pushPings"],
+            json_["visionClearedPings"], # 21
+            
+            json_["totalMinionsKilled"],
+            json_["timePlayed"],
+            json_["visionScore"],
+            json_["turretTakedowns"], # 25
+
+            challenges["skillshotsDodged"],
+            challenges["skillshotsHit"], # 27
+
+            challenges["dragonTakedowns"],
+            challenges["baronTakedowns"],
+            challenges["riftHeraldTakedowns"], # 30
+
+            challenges["epicMonsterSteals"],
+            challenges["controlWardsPlaced"],
+            challenges["bountyGold"],
+            challenges["turretPlatesTaken"],
+            challenges["unseenRecalls"], # 35
+        ]
         return self
         
 
