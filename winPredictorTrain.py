@@ -75,7 +75,7 @@ class LeagueDataset(Dataset):
                     y_tensors.append(get_match_result_tensor(matchDTO))
 
                 print(f"{match_count} matches loaded")
-                if match_count >= MATCH_COUNT_CUTOFF:
+                if match_count >= DATASET_SIZE_LIMIT:
                     break
 
                 cursor.execute(f"SELECT MIN(\"ID\") FROM league.\"Match\" WHERE \"ID\" >= {minId + 10000};")
@@ -99,15 +99,14 @@ MODEL = nn.Sequential(
     nn.Tanh(),
     nn.Linear(200, 200),
     nn.Tanh(),
-    nn.Linear(200, 1),
-    nn.Sigmoid()
+    nn.Linear(200, 1)
 )
 
 def standard_scaled(tensor):
     return (tensor - tensor.mean(dim=2, keepdim=True)) / (tensor.std(dim=2, keepdim=True) + 1e-6)
 
-def model_forward(x, model):
-    y_predicted = torch.zeros((x.shape[0], 1))
+def model_forward(x, model, device):
+    y_predicted = torch.zeros((x.shape[0], 1)).to(device)
     for i in range(x.shape[2]):
         if i < 5:
             y_predicted += model(x[:, :, i])
@@ -124,7 +123,7 @@ def main():
 
     device = torch.device(dev)
 
-    dataset = LeagueDataset(use_file=True)
+    dataset = LeagueDataset(use_file=False)
 
     X, y = dataset.x, dataset.y
 
@@ -152,7 +151,7 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
     for epoch in range(num_epochs):
-        y_predicted = model_forward(X_train, model)
+        y_predicted = model_forward(X_train, model, device)
 
         loss = criterion(y_predicted, y_train)
 
@@ -162,7 +161,7 @@ def main():
 
         optimizer.zero_grad()
 
-        y_val_predicted = model_forward(X_val, model)
+        y_val_predicted = model_forward(X_val, model, device)
         y_val_predicted_classes = y_val_predicted.round()
         acc = y_val_predicted_classes.eq(y_val).sum() / float(y_val.shape[0])
         if acc > max_acc:
@@ -173,7 +172,7 @@ def main():
             print(f'epoch: {epoch+1}, loss = {loss.item():.4f}, val_acc: {acc:.4f}')
 
     with torch.no_grad():
-        y_predicted = model_forward(X_test, max_acc_model)
+        y_predicted = model_forward(X_test, max_acc_model, device)
         y_predicted_classes = y_predicted.round()
         acc = y_predicted_classes.eq(y_test).sum() / float(y_test.shape[0])
         print(f'accuracy = {acc:.4f}')
