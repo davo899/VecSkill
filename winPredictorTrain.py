@@ -11,7 +11,7 @@ from dto import MatchDTO
 from psycopg2 import connect
 
 
-DATASET_SIZE_LIMIT = math.inf
+DATASET_SIZE_LIMIT = 50_000
 MODELS_DIRECTORY = "models"
 
 def get_player_tensor(playerDTO):
@@ -123,7 +123,7 @@ def main():
 
     device = torch.device(dev)
 
-    dataset = LeagueDataset(use_file=False)
+    dataset = LeagueDataset(use_file=True)
 
     X, y = dataset.x, dataset.y
 
