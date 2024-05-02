@@ -1,10 +1,9 @@
 import json
+import math
 from psycopg2 import connect
-from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX, DATASET_FILE, DB_KEY_FILE, MATCH_COUNT_CUTOFF
+from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX, DATASET_FILE, DB_KEY_FILE
 
-PORT = 24629
-NEXT_MESSAGE = b"NEXT"
-END_MESSAGE = b"END"
+FILE_MATCH_COUNT_CUTOFF = math.inf
 
 if __name__ == "__main__":
     with open(DB_KEY_FILE, "r", encoding="utf-8") as file:
@@ -39,7 +38,7 @@ if __name__ == "__main__":
                 file.write(json.dumps(match))
 
             print(f"{match_count} matches written")
-            if match_count >= MATCH_COUNT_CUTOFF:
+            if match_count >= FILE_MATCH_COUNT_CUTOFF:
                 break
 
             cursor.execute(f"SELECT MIN(\"ID\") FROM league.\"Match\" WHERE \"ID\" >= {minId + 10000};")

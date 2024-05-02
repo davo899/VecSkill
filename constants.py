@@ -23,4 +23,3 @@ RED_TEAM = 200
 
 DB_KEY_FILE = "dbkey.txt"
 DATASET_FILE = "match_dataset.json"
-MATCH_COUNT_CUTOFF = math.inf

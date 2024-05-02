@@ -6,8 +6,9 @@
 **.pth
 
 dataCollector.py
+dataCollection/timelineCollector.py
 run.sh
 stop.sh
 
 __pycache__
-models
+savedModels
