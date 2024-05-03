@@ -29,7 +29,7 @@ class LeagueDataset(Dataset):
         self.__pipeline = pipeline
         self.x = []
         self.y = []
-        match_count = 0
+        match_count =0
         print("Loading dataset")
 
         if use_file:
@@ -38,7 +38,7 @@ class LeagueDataset(Dataset):
                     break
                 self.__add_match(match)
                 match_count += 1
-                if match_count % 10_000 == 0:
+                if match_count % 10_000 ==0:
                     print(f"{match_count} matches loaded")
         else:
             with open(DB_KEY_FILE, "r", encoding="utf-8") as file:
@@ -85,10 +85,11 @@ def main():
     else: 
         dev = "cpu"
 
+    print(f"device: {dev}")
     device = torch.device(dev)
 
-    pipeline = AllPlayersPipeline(device=device, dropout=0)
-    dataset = LeagueDataset(pipeline=pipeline, use_file=False, size_limit=1_000)
+    pipeline = AllPlayersPipeline(device=device, dropout=0.5)
+    dataset = LeagueDataset(pipeline=pipeline, use_file=False, size_limit=200_000)
 
     X, y = dataset.x.to(device), dataset.y.to(device)
     X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-6)
@@ -98,7 +99,7 @@ def main():
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25)
     print("Dataset split into train, val, test")
 
-    lr = 0.1
+    lr =0.1
     num_epochs = 2000
     criterion = nn.BCELoss()
 
@@ -108,6 +109,7 @@ def main():
     optimizer = torch.optim.SGD(pipeline.model.parameters(), lr=lr)
 
     for epoch in range(num_epochs):
+        pipeline.model.train()
         y_predicted = pipeline.forward(X_train, device)
 
         loss = criterion(y_predicted, y_train)
@@ -118,18 +120,21 @@ def main():
 
         optimizer.zero_grad()
 
-        y_val_predicted = pipeline.forward(X_val, device)
-        y_val_predicted_classes = y_val_predicted.round()
-        acc = y_val_predicted_classes.eq(y_val).sum() / float(y_val.shape[0])
-        if acc > max_acc:
-            max_acc = acc
-            max_acc_model = copy.deepcopy(pipeline.model)
+        pipeline.model.eval()
+        with torch.no_grad():
+            y_val_predicted = pipeline.forward(X_val, device)
+            y_val_predicted_classes = y_val_predicted.round()
+            acc = y_val_predicted_classes.eq(y_val).sum() / float(y_val.shape[0])
+            if acc > max_acc:
+                max_acc = acc
+                max_acc_model = copy.deepcopy(pipeline.model)
 
-        if (epoch + 1) % 10 == 0:
-            print(f'epoch: {epoch+1}, loss = {loss.item():.4f}, val_acc: {acc:.4f}')
+            if (epoch + 1) % 10 ==0:
+                print(f'epoch: {epoch+1}, loss = {loss.item():.4f}, val_acc: {acc:.4f}')
+
+    pipeline.model = max_acc_model
 
     with torch.no_grad():
-        pipeline.model = max_acc_model
         y_predicted = pipeline.forward(X_test, device)
         y_predicted_classes = y_predicted.round()
         acc = y_predicted_classes.eq(y_test).sum() / float(y_test.shape[0])
@@ -139,6 +144,18 @@ def main():
         if not os.path.exists(MODELS_DIRECTORY):
             os.makedirs(MODELS_DIRECTORY)
         torch.save(pipeline.model.state_dict(), f"{MODELS_DIRECTORY}/{pipeline.name}-{(acc * 100):.2f}-{len(y)}-{int(time.time())}.pth")
+
+    x_grad = X_test[0, :]
+    x_grad.requires_grad = True
+    y_grad = pipeline.model(x_grad)
+    y_grad.backward()
+
+    GRADS_DIRECTORY = "savedGrads"
+    if not os.path.exists(GRADS_DIRECTORY):
+        os.makedirs(GRADS_DIRECTORY)
+    torch.set_printoptions(profile="full", sci_mode=False)
+    with open(f"{GRADS_DIRECTORY}/{pipeline.name}-{(acc * 100):.2f}-{len(y)}-{int(time.time())}.txt", "w") as file:
+        print(x_grad.grad, file=file)
 
 if __name__ == "__main__":
     main()

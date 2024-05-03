@@ -5,8 +5,8 @@
 *.docx
 **.pth
 
+hack.py
 dataCollector.py
-dataCollection/timelineCollector.py
 run.sh
 stop.sh
 
