@@ -7,7 +7,9 @@ if __name__ == "__main__":
     sys.tracebacklimit = 0
     try:
         while True:
-            cursor.execute("SELECT \"ID\" FROM league.\"Match\" WHERE \"MatchTimeline\" IS NULL LIMIT 10000;")
+            cursor.execute(
+                "SELECT \"ID\" FROM league.\"Match\" WHERE \"ID\" % 2 = 0 AND \"MatchTimeline\" IS NULL LIMIT 10000;"
+            )
             ids = cursor.fetchall()[0]
             if len(ids) == 0:
                 break

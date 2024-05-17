@@ -3,6 +3,7 @@
 *.json
 *.xlsx
 *.docx
+*.bin
 **.pth
 
 hack.py
@@ -12,3 +13,6 @@ stop.sh
 
 __pycache__
 savedModels
+savedGrads
+saved
+humanEval

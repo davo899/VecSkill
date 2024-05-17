@@ -1,5 +1,6 @@
 import torch
 import ijson
+import array
 import os
 from torch import nn
 from torch.utils.data import Dataset
@@ -10,7 +11,7 @@ import time
 from constants import DATASET_FILE, DB_KEY_FILE, DRAFT_PICK, RANKED_SOLO, RANKED_FLEX
 from dto import MatchDTO
 from psycopg2 import connect
-from pipelines import AllPlayersPipeline, SinglePlayerPipeline
+from pipelines import AllPlayersPipeline, SinglePlayerPipeline, SinglePlayerL2NormPipeline
 
 
 class LeagueDataset(Dataset):
@@ -29,7 +30,7 @@ class LeagueDataset(Dataset):
         self.__pipeline = pipeline
         self.x = []
         self.y = []
-        match_count =0
+        match_count = 0
         print("Loading dataset")
 
         if use_file:
@@ -38,7 +39,7 @@ class LeagueDataset(Dataset):
                     break
                 self.__add_match(match)
                 match_count += 1
-                if match_count % 10_000 ==0:
+                if match_count % 10_000 == 0:
                     print(f"{match_count} matches loaded")
         else:
             with open(DB_KEY_FILE, "r", encoding="utf-8") as file:
@@ -89,7 +90,7 @@ def main():
     device = torch.device(dev)
 
     pipeline = AllPlayersPipeline(device=device, dropout=0.5)
-    dataset = LeagueDataset(pipeline=pipeline, use_file=False, size_limit=200_000)
+    dataset = LeagueDataset(pipeline=pipeline, use_file=False, size_limit=2_000)
 
     X, y = dataset.x.to(device), dataset.y.to(device)
     X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-6)
@@ -98,9 +99,10 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25)
     print("Dataset split into train, val, test")
+    print(X_test.shape)
 
-    lr =0.1
-    num_epochs = 2000
+    lr = 0.1
+    num_epochs = 1000
     criterion = nn.BCELoss()
 
     max_acc = -1
@@ -110,7 +112,7 @@ def main():
 
     for epoch in range(num_epochs):
         pipeline.model.train()
-        y_predicted = pipeline.forward(X_train, device)
+        y_predicted = pipeline.forward(X_train)
 
         loss = criterion(y_predicted, y_train)
 
@@ -122,20 +124,25 @@ def main():
 
         pipeline.model.eval()
         with torch.no_grad():
-            y_val_predicted = pipeline.forward(X_val, device)
+            y_val_predicted = pipeline.forward(X_val)
             y_val_predicted_classes = y_val_predicted.round()
             acc = y_val_predicted_classes.eq(y_val).sum() / float(y_val.shape[0])
             if acc > max_acc:
                 max_acc = acc
                 max_acc_model = copy.deepcopy(pipeline.model)
 
-            if (epoch + 1) % 10 ==0:
+            if (epoch + 1) % 10 == 0:
                 print(f'epoch: {epoch+1}, loss = {loss.item():.4f}, val_acc: {acc:.4f}')
 
     pipeline.model = max_acc_model
+    y_predicted = pipeline.forward(X_test)
+    with open('X.bin', 'wb') as file:
+        array.array('d', X_test.flatten().cpu().tolist()).tofile(file)
+    with open('Y.bin', 'wb') as file:
+        array.array('d', y_predicted.flatten().cpu().tolist()).tofile(file)
 
     with torch.no_grad():
-        y_predicted = pipeline.forward(X_test, device)
+        y_predicted = pipeline.forward(X_test)
         y_predicted_classes = y_predicted.round()
         acc = y_predicted_classes.eq(y_test).sum() / float(y_test.shape[0])
         print(f'accuracy = {acc:.4f}')
@@ -144,18 +151,6 @@ def main():
         if not os.path.exists(MODELS_DIRECTORY):
             os.makedirs(MODELS_DIRECTORY)
         torch.save(pipeline.model.state_dict(), f"{MODELS_DIRECTORY}/{pipeline.name}-{(acc * 100):.2f}-{len(y)}-{int(time.time())}.pth")
-
-    x_grad = X_test[0, :]
-    x_grad.requires_grad = True
-    y_grad = pipeline.model(x_grad)
-    y_grad.backward()
-
-    GRADS_DIRECTORY = "savedGrads"
-    if not os.path.exists(GRADS_DIRECTORY):
-        os.makedirs(GRADS_DIRECTORY)
-    torch.set_printoptions(profile="full", sci_mode=False)
-    with open(f"{GRADS_DIRECTORY}/{pipeline.name}-{(acc * 100):.2f}-{len(y)}-{int(time.time())}.txt", "w") as file:
-        print(x_grad.grad, file=file)
 
 if __name__ == "__main__":
     main()

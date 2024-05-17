@@ -9,7 +9,7 @@ class Pipeline():
     def __init__(self):
         self._input_features = self.match_to_x(MatchDTO()).shape[0]
     
-    def forward(self, input_, device):
+    def forward(self, input_):
         return self.model(input_)
 
     def match_to_y(self, matchDTO):
@@ -62,13 +62,32 @@ class SinglePlayerPipeline(Pipeline):
     def match_to_x(self, matchDTO):
         return torch.stack([self._player_tensor(playerDTO) for playerDTO in sorted(matchDTO.players, key=lambda p: p.team)], dim=1)
 
-    def forward(self, input_, device):
-        y_predicted = torch.zeros((input_.shape[0], 1)).to(device)
-        for i in range(input_.shape[2]):
-            output = self.model(input_[:, :, i])
-            if i < 5:
-                y_predicted += output
-            else:
-                y_predicted -= output
+    def forward(self, input_):
+        player_count = input_.shape[2]
+        scores = torch.stack([self.model(input_[:, :, i]) for i in range(player_count)])
+        self.scores = scores.clone()
+        self.mean = self.scores.mean(dim=0)
+        self.var = self.scores.var(dim=0)
+        for i in range(player_count // 2):
+            scores[(player_count // 2) + i] *= -1
+        return torch.sigmoid(scores.sum(dim=0))
 
-        return torch.sigmoid(y_predicted)
+
+class SinglePlayerL2NormPipeline(SinglePlayerPipeline):
+
+    def __init__(self, device, dropout=0):
+        super().__init__(device, dropout)
+        self.name = "single-player-l2-norm"
+
+    def forward(self, input_):
+        player_count = input_.shape[2]
+        scores = nn.functional.normalize(
+            torch.stack([self.model(input_[:, :, i]) for i in range(player_count)], dim=0),
+            p=2,
+            dim=0
+        )
+        self.mean = scores.flatten().mean(dim=0)
+        self.var = scores.flatten().var(dim=0)
+        for i in range(player_count // 2):
+            scores[(player_count // 2) + i] *= -1
+        return torch.sigmoid(scores.sum(dim=0))

@@ -6,7 +6,7 @@ class PlayerDTO:
     def __init__(self):
         self.champion = 0
         self.team = 0
-        self.count_feature_count = 35
+        self.count_feature_count = 30
         self.count_features = [0 for _ in range(self.count_feature_count)]
 
     def to_bytes(self):
@@ -37,15 +37,15 @@ class PlayerDTO:
 
         challenges = json_["challenges"]
         self.count_features = [
-            json_["kills"],
-            json_["deaths"],
-            json_["assists"], # 3
+            #json_["kills"],
+            #json_["deaths"],
+            json_["assists"],
 
-            json_["goldEarned"],
-            json_["champExperience"], # 5
+            #json_["goldEarned"],
+            #json_["champExperience"],
 
             json_["totalDamageDealtToChampions"],
-            json_["totalTimeCCDealt"], #7
+            json_["totalTimeCCDealt"],
 
             json_["allInPings"],
             json_["assistMePings"],
@@ -60,25 +60,25 @@ class PlayerDTO:
             json_["needVisionPings"],
             json_["onMyWayPings"],
             json_["pushPings"],
-            json_["visionClearedPings"], # 21
+            json_["visionClearedPings"],
             
             json_["totalMinionsKilled"],
             json_["timePlayed"],
             json_["visionScore"],
-            json_["turretTakedowns"], # 25
+            #json_["turretTakedowns"],
 
             challenges["skillshotsDodged"],
-            challenges["skillshotsHit"], # 27
+            challenges["skillshotsHit"],
 
             challenges["dragonTakedowns"],
             challenges["baronTakedowns"],
-            challenges["riftHeraldTakedowns"], # 30
+            challenges["riftHeraldTakedowns"],
 
             challenges["epicMonsterSteals"],
             challenges["controlWardsPlaced"],
             challenges["bountyGold"],
             challenges["turretPlatesTaken"],
-            challenges["unseenRecalls"], # 35
+            challenges["unseenRecalls"],
         ]
         return self
         
