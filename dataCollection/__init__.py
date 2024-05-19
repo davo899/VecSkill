@@ -1,1 +1,0 @@
-from .riotapi import KEY, request, cursor, conn
