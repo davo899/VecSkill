@@ -29,13 +29,6 @@ class Match:
     def event_count(self):
         return self.__event_count
 
-    def is_standard_match(self):
-        return (
-            self.__info["queueId"] in (DRAFT_PICK, RANKED_SOLO, RANKED_FLEX) and
-            self.__info["gameMode"] in ("CLASSIC",) and
-            self.__info["gameType"] in ("MATCHED_GAME",)
-        )
-
     def timeline_tensor(self):
         event_tensors = []
         previous_event_timestamp = 0
@@ -71,9 +64,12 @@ class TimelineDataset(Dataset):
         while minId:
             cursor.execute(
                 "SELECT \"MatchJson\", \"MatchTimeline\" FROM league.\"Match\" " +
-                f"WHERE \"MatchTimeline\" IS NOT NULL AND \"ID\" >= {minId} AND \"ID\" < {minId + 1000};"
+                f"WHERE \"MatchTimeline\" IS NOT NULL AND \"ID\" >= {minId} AND \"ID\" < {minId + 10000} " +
+                f"AND \"Queue\" IN ({DRAFT_PICK}, {RANKED_SOLO}, {RANKED_FLEX}) " +
+                "AND \"GameMode\" = 'CLASSIC' " +
+                "AND \"GameType\" = 'MATCHED_GAME';"
             )
-            batch = [match for match in (Match(data) for data in cursor.fetchall()) if match.event_count() > 0 and match.is_standard_match()]
+            batch = [match for match in (Match(data) for data in cursor.fetchall()) if match.event_count() > 0]
             match_count += len(batch)
             for match in batch:
                 self.x.append(match.timeline_tensor())
@@ -89,13 +85,14 @@ class TimelineDataset(Dataset):
         event_counts = [tensor.size(0) for tensor in self.x]
         max_event_count = max(event_counts)
         self.x = torch.stack([nn.functional.pad(tensor, (0, 0, 0, max_event_count - tensor.size(0))) for tensor in self.x])
+        self.x = (self.x - self.x.mean(dim=(0, 1), keepdim=True)) / (self.x.std(dim=(0, 1), keepdim=True) + 1e-6)
         self.y = torch.stack(self.y).expand(-1, self.x.shape[1])
         self.mask = torch.stack([torch.cat([torch.ones(event_count), torch.zeros(max_event_count - event_count)]) for event_count in event_counts])
         self.length = len(self.x)
         print(f"Loaded {self.length} matches in {datetime.timedelta(seconds=time.time() - start)}")
 
     def __getitem__(self, index):
-        return self.x[index], self.y[index]
+        return self.x[index], self.y[index], self.mask[index]
 
     def __len__(self):
         return self.length
