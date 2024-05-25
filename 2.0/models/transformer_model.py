@@ -28,7 +28,7 @@ class PositionalEncoding(nn.Module):
         
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # shape (1, max_len, embed_dim)
+        pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
@@ -76,8 +76,7 @@ class TransformerModel(nn.Module):
         x = self.__transformer_encoder(x, mask=causal_mask, src_key_padding_mask=self.__padding_mask(mask), is_causal=True)
 
         output = self.__fc_out(x)
-        output = torch.cumsum(output.squeeze(), dim=1)
-        output = torch.sigmoid(output)
+        output = torch.sigmoid(output.squeeze())
 
         return output
 

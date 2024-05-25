@@ -10,6 +10,11 @@ class Feature:
     def _added_tensor(self, _):
         return torch.zeros(self.__added_length)
 
+    def _one_hot(self, index, length):
+        tensor = torch.zeros(length)
+        tensor[index] = 1
+        return tensor
+
     def length(self):
         return self.__added_length + sum(feature.length() for feature in self.__subfeatures)
 

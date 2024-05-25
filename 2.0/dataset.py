@@ -4,13 +4,12 @@ from torch.utils.data import Dataset
 import math
 from psycopg2 import connect
 from constants import DRAFT_PICK, RANKED_SOLO, RANKED_FLEX, BLUE_TEAM
-from features import EventFeature
+from features import AnyEventFeature
 import time
 import datetime
 
 
-EVENT_TYPES = ("CHAMPION_KILL",)
-
+EVENT_TYPES = ("CHAMPION_KILL", "ELITE_MONSTER_KILL")
 
 class Match:
 
@@ -36,11 +35,12 @@ class Match:
             for event in frame["events"]:
                 if event["type"] not in EVENT_TYPES:
                     continue
+
                 event["timeSinceLastEvent"] = event["timestamp"] - previous_event_timestamp
-                event_tensors.append(EventFeature().tensor(event))
+                event_tensors.append(AnyEventFeature().tensor(event))
                 previous_event_timestamp = event["timestamp"]
 
-        return torch.stack(event_tensors) if event_tensors else torch.empty((0, EventFeature().length()))
+        return torch.stack(event_tensors) if event_tensors else torch.empty((0, AnyEventFeature().length()))
 
     def result_tensor(self):
         return torch.ones(1) if self.__blue_team_won() else torch.zeros(1)
