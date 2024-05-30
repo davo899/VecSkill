@@ -48,7 +48,7 @@ class Match:
 
 class TimelineDataset(Dataset):
 
-    def __init__(self, size_limit=math.inf):
+    def __init__(self, size_limit=math.inf, log=lambda x: None):
         start = time.time()
         self.x = []
         self.y = []
@@ -89,7 +89,7 @@ class TimelineDataset(Dataset):
         self.y = torch.stack(self.y).expand(-1, self.x.shape[1])
         self.mask = torch.stack([torch.cat([torch.ones(event_count), torch.zeros(max_event_count - event_count)]) for event_count in event_counts])
         self.length = len(self.x)
-        print(f"Loaded {self.length} matches in {datetime.timedelta(seconds=time.time() - start)}")
+        log(f"Loaded {self.length} matches in {datetime.timedelta(seconds=time.time() - start)}")
 
     def __getitem__(self, index):
         return self.x[index], self.y[index], self.mask[index]
